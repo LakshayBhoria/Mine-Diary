@@ -1,10 +1,10 @@
 import os
 from tkinter import *
 from tkinter import messagebox, scrolledtext
-from auth import authenticate
-from datetime import datetime
 from PIL import Image, ImageTk
+from datetime import datetime
 from captcha_generator import generate_captcha
+from auth import authenticate
 
 # Ensure required folders exist
 if not os.path.exists("entries"):
@@ -12,7 +12,6 @@ if not os.path.exists("entries"):
 if not os.path.exists("users"):
     os.makedirs("users")
 
-# ---- MAIN APP GUI ---- #
 class MineDiaryApp:
     def __init__(self, root):
         self.root = root
@@ -29,9 +28,11 @@ class MineDiaryApp:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        logo_img = Image.open("image.jpg").resize((80, 80))
-        self.logo = ImageTk.PhotoImage(logo_img)
-        Label(self.root, image=self.logo, bg="#fffaf0").pack(pady=10)
+        # Logo Image
+        if os.path.exists("image.jpg"):
+            logo_img = Image.open("image.jpg").resize((80, 80))
+            self.logo = ImageTk.PhotoImage(logo_img)
+            Label(self.root, image=self.logo, bg="#fffaf0").pack(pady=10)
 
         Label(self.root, text="📔 Mine-Diary", font=("Georgia", 28, "bold"), bg="#fffaf0", fg="#5a2a27").pack()
         Label(self.root, text="Enter your Email:", font=("Georgia", 14), bg="#fffaf0").pack()
@@ -63,14 +64,14 @@ class MineDiaryApp:
 
     def verify_user(self):
         email = self.email_entry.get().strip()
-        captcha_input = self.captcha_entry.get().strip().upper()
+        input_captcha = self.captcha_entry.get().strip()
 
-        if not email or not captcha_input:
-            messagebox.showwarning("Input Error", "Please complete all fields.")
+        if not email or not input_captcha:
+            messagebox.showwarning("Input Error", "Please fill all fields.")
             return
 
-        if captcha_input != self.captcha_code.upper():
-            messagebox.showerror("CAPTCHA Failed", "Invalid CAPTCHA. Please try again.")
+        if input_captcha.lower() != self.captcha_code.lower():
+            messagebox.showerror("Invalid CAPTCHA", "CAPTCHA input is incorrect.")
             self.refresh_captcha()
             return
 
