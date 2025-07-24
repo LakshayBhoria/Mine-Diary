@@ -6,7 +6,11 @@ import io
 def generate_captcha():
     width, height = 150, 50
     image = Image.new("RGB", (width, height), color=(255, 255, 255))
-    font = ImageFont.truetype("arial.ttf", 28)
+
+    try:
+        font = ImageFont.truetype("arial.ttf", 28)
+    except:
+        font = ImageFont.load_default()
 
     captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
 
@@ -25,4 +29,3 @@ def generate_captcha():
         draw.line(((x1, y1), (x2, y2)), fill=(0, 0, 0))
 
     return image, captcha_text
-captch
