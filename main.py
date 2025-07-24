@@ -1,116 +1,88 @@
-import tkinter as tk
-from tkinter import messagebox, simpledialog
-from emotions import detect_emotion
-from auth import login_user, signup_user
-import json, os
+import os
+from tkinter import *
+from tkinter import messagebox, scrolledtext
+from auth import authenticate
 from datetime import datetime
-import random
 
-with open("affirmations.json", "r") as f:
-    affirmations = json.load(f)
+# Make sure required folders exist
+if not os.path.exists("entries"):
+    os.makedirs("entries")
+if not os.path.exists("users"):
+    os.makedirs("users")
 
-# --- App Window Setup ---
-app = tk.Tk()
-app.title("Emotionary - AI Diary")
-app.geometry("400x500")
-app.resizable(False, False)
+# ---- MAIN APP GUI ---- #
+class EmotionaryApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Emotionary - Your Personal Diary")
+        self.root.geometry("700x600")
+        self.root.config(bg="#fffaf0")
 
-current_user = None
+        self.email = None
 
-# --- Frame Switcher ---
-frames = {}
+        self.show_login()
 
-def show_frame(name):
-    for f in frames.values():
-        f.pack_forget()
-    frames[name].pack(fill="both", expand=True)
+    def show_login(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
 
-# --- Login Frame ---
-login_frame = tk.Frame(app)
-frames["login"] = login_frame
+        Label(self.root, text="📔 Emotionary", font=("Georgia", 28, "bold"), bg="#fffaf0", fg="#5a2a27").pack(pady=20)
+        Label(self.root, text="Enter your Email:", font=("Georgia", 14), bg="#fffaf0").pack()
 
-tk.Label(login_frame, text="Login", font=("Arial", 20)).pack(pady=20)
-email_entry = tk.Entry(login_frame, width=30)
-email_entry.pack(pady=5)
-email_entry.insert(0, "Enter your email")
+        self.email_entry = Entry(self.root, font=("Georgia", 12), width=30)
+        self.email_entry.pack(pady=10)
 
-password_entry = tk.Entry(login_frame, show="*", width=30)
-password_entry.pack(pady=5)
-password_entry.insert(0, "password")
+        self.signup_var = IntVar()
+        Checkbutton(self.root, text="New user? Sign up", variable=self.signup_var, bg="#fffaf0", font=("Georgia", 10)).pack()
 
-def handle_login():
-    global current_user
-    email = email_entry.get()
-    password = password_entry.get()
-    if login_user(email, password):
-        current_user = email
-        show_frame("diary")
-    else:
-        messagebox.showerror("Error", "Invalid credentials!")
+        Button(self.root, text="Continue", command=self.verify_user, font=("Georgia", 12), bg="#8B4513", fg="white", padx=10).pack(pady=15)
 
-tk.Button(login_frame, text="Login", command=handle_login).pack(pady=10)
-tk.Button(login_frame, text="Sign up", command=lambda: show_frame("signup")).pack()
+    def verify_user(self):
+        email = self.email_entry.get().strip()
+        if not email:
+            messagebox.showwarning("Input Error", "Please enter your email.")
+            return
 
-# --- Signup Frame ---
-signup_frame = tk.Frame(app)
-frames["signup"] = signup_frame
+        is_signup = bool(self.signup_var.get())
+        success, msg = authenticate(email, is_signup)
 
-tk.Label(signup_frame, text="Signup", font=("Arial", 20)).pack(pady=20)
-signup_email = tk.Entry(signup_frame, width=30)
-signup_email.pack(pady=5)
+        if success:
+            self.email = email
+            self.show_diary()
+        else:
+            messagebox.showerror("Authentication Failed", msg)
 
-signup_password = tk.Entry(signup_frame, show="*", width=30)
-signup_password.pack(pady=5)
+    def show_diary(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
 
-def handle_signup():
-    email = signup_email.get()
-    password = signup_password.get()
-    if signup_user(email, password):
-        messagebox.showinfo("Success", "Account created. Please login.")
-        show_frame("login")
-    else:
-        messagebox.showerror("Error", "User already exists.")
+        Label(self.root, text="📖 Your Diary", font=("Georgia", 24, "bold"), bg="#fffaf0", fg="#5a2a27").pack(pady=20)
 
-tk.Button(signup_frame, text="Create Account", command=handle_signup).pack(pady=10)
-tk.Button(signup_frame, text="Back to Login", command=lambda: show_frame("login")).pack()
+        self.text_area = scrolledtext.ScrolledText(self.root, wrap=WORD, font=("Georgia", 13), bg="#fffef8", width=70, height=20)
+        self.text_area.pack(padx=15, pady=10)
 
-# --- Diary Frame ---
-diary_frame = tk.Frame(app)
-frames["diary"] = diary_frame
+        Button(self.root, text="Save Entry", command=self.save_entry, font=("Georgia", 12), bg="#006400", fg="white", padx=12).pack(pady=10)
+        Button(self.root, text="Logout", command=self.show_login, font=("Georgia", 10), bg="#a52a2a", fg="white").pack(pady=5)
 
-tk.Label(diary_frame, text="How are you feeling today?", font=("Arial", 14)).pack(pady=10)
-entry_text = tk.Text(diary_frame, height=10, width=40)
-entry_text.pack()
+    def save_entry(self):
+        content = self.text_area.get("1.0", END).strip()
+        if not content:
+            messagebox.showwarning("Empty", "Diary entry is empty.")
+            return
 
-output_label = tk.Label(diary_frame, text="", wraplength=300, font=("Arial", 11))
-output_label.pack(pady=10)
+        date_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        user_folder = os.path.join("entries", self.email.replace("@", "_"))
+        os.makedirs(user_folder, exist_ok=True)
 
-def analyze_and_save():
-    text = entry_text.get("1.0", tk.END).strip()
-    if not text:
-        messagebox.showwarning("Empty", "Please write something.")
-        return
-    emotion = detect_emotion(text)
-    aff = random.choice(affirmations.get(emotion.split()[0], ["You're strong."]))
-    output_label.config(text=f"🧠 {emotion}\n💌 {aff}")
+        file_path = os.path.join(user_folder, f"{date_str}.txt")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
 
-    today = datetime.today().strftime("%Y-%m-%d")
-    os.makedirs("entries", exist_ok=True)
-    filename = f"entries/{current_user}_{today}.json"
-    with open(filename, "w") as f:
-        json.dump({
-            "user": current_user,
-            "date": today,
-            "entry": text,
-            "emotion": emotion,
-            "affirmation": aff
-        }, f, indent=2)
+        messagebox.showinfo("Saved", "Your diary entry has been saved.")
+        self.text_area.delete("1.0", END)
 
-    entry_text.delete("1.0", tk.END)
-    messagebox.showinfo("Saved", f"Entry saved for {today}.")
-
-tk.Button(diary_frame, text="Analyze & Save", command=analyze_and_save).pack(pady=10)
-
-# --- Start on Login Frame ---
-show_frame("login")
-app.mainloop()
+# Run the App
+if __name__ == "__main__":
+    root = Tk()
+    app = EmotionaryApp(root)
+    root.mainloop()
