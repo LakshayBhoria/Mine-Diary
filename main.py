@@ -1,21 +1,18 @@
 import os
-import random
-import string
 from tkinter import *
 from tkinter import messagebox, scrolledtext
-from PIL import Image, ImageDraw, ImageFont, ImageTk
 from auth import authenticate
 from datetime import datetime
+from PIL import Image, ImageTk
+from captcha_generator import generate_captcha
 
-# Generate CAPTCHA
-def generate_captcha():
-    captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    img = Image.new('RGB', (120, 40), color=(255, 255, 255))
-    d = ImageDraw.Draw(img)
-    font = ImageFont.load_default()
-    d.text((10, 10), captcha_text, font=font, fill=(0, 0, 0))
-    return img, captcha_text
+# Ensure required folders exist
+if not os.path.exists("entries"):
+    os.makedirs("entries")
+if not os.path.exists("users"):
+    os.makedirs("users")
 
+# ---- MAIN APP GUI ---- #
 class MineDiaryApp:
     def __init__(self, root):
         self.root = root
@@ -26,40 +23,43 @@ class MineDiaryApp:
         self.email = None
         self.captcha_code = ""
 
-        os.makedirs("entries", exist_ok=True)
-        os.makedirs("users", exist_ok=True)
-
         self.show_login()
 
     def show_login(self):
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        try:
-            logo_img = Image.open("image.jpg").resize((80, 80))
-            self.logo_photo = ImageTk.PhotoImage(logo_img)
-            Label(self.root, image=self.logo_photo, bg="#fffaf0").pack(pady=5)
-        except:
-            pass
+        logo_img = Image.open("image.jpg").resize((80, 80))
+        self.logo = ImageTk.PhotoImage(logo_img)
+        Label(self.root, image=self.logo, bg="#fffaf0").pack(pady=10)
 
-        Label(self.root, text="📔 Mine-Diary", font=("Georgia", 28, "bold"), bg="#fffaf0", fg="#5a2a27").pack(pady=5)
+        Label(self.root, text="📔 Mine-Diary", font=("Georgia", 28, "bold"), bg="#fffaf0", fg="#5a2a27").pack()
         Label(self.root, text="Enter your Email:", font=("Georgia", 14), bg="#fffaf0").pack()
-        self.email_entry = Entry(self.root, font=("Georgia", 12), width=30)
-        self.email_entry.pack(pady=5)
 
+        self.email_entry = Entry(self.root, font=("Georgia", 12), width=30)
+        self.email_entry.pack(pady=10)
+
+        # CAPTCHA
         self.captcha_img, self.captcha_code = generate_captcha()
         self.tk_captcha = ImageTk.PhotoImage(self.captcha_img)
         self.captcha_label = Label(self.root, image=self.tk_captcha, bg="#fffaf0")
-        self.captcha_label.pack()
+        self.captcha_label.pack(pady=5)
 
+        Label(self.root, text="Enter CAPTCHA:", font=("Georgia", 12), bg="#fffaf0").pack()
         self.captcha_entry = Entry(self.root, font=("Georgia", 12), width=15)
         self.captcha_entry.pack(pady=5)
-        Label(self.root, text="Enter CAPTCHA above", font=("Georgia", 10), bg="#fffaf0").pack()
+
+        Button(self.root, text="Reload CAPTCHA", command=self.refresh_captcha, font=("Georgia", 10), bg="#ccc").pack(pady=2)
 
         self.signup_var = IntVar()
         Checkbutton(self.root, text="New user? Sign up", variable=self.signup_var, bg="#fffaf0", font=("Georgia", 10)).pack()
 
-        Button(self.root, text="Continue", command=self.verify_user, font=("Georgia", 12), bg="#8B4513", fg="white", padx=10).pack(pady=10)
+        Button(self.root, text="Continue", command=self.verify_user, font=("Georgia", 12), bg="#8B4513", fg="white", padx=10).pack(pady=15)
+
+    def refresh_captcha(self):
+        self.captcha_img, self.captcha_code = generate_captcha()
+        self.tk_captcha = ImageTk.PhotoImage(self.captcha_img)
+        self.captcha_label.config(image=self.tk_captcha)
 
     def verify_user(self):
         email = self.email_entry.get().strip()
@@ -69,9 +69,9 @@ class MineDiaryApp:
             messagebox.showwarning("Input Error", "Please complete all fields.")
             return
 
-        if captcha_input != self.captcha_code:
+        if captcha_input != self.captcha_code.upper():
             messagebox.showerror("CAPTCHA Failed", "Invalid CAPTCHA. Please try again.")
-            self.show_login()
+            self.refresh_captcha()
             return
 
         is_signup = bool(self.signup_var.get())
