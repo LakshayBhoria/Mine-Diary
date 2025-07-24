@@ -1,0 +1,87 @@
+import os
+import tkinter as tk
+from tkinter import messagebox, simpledialog, scrolledtext, PhotoImage
+from textblob import TextBlob
+import json
+from datetime import datetime
+
+# Local modules
+import auth
+import emotions
+
+# Ensure folders exist
+os.makedirs("entries", exist_ok=True)
+os.makedirs("users", exist_ok=True)
+
+# ---------------- UI App ------------------ #
+class EmotionaryApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("📖 Emotionary - Your Emotional Diary")
+        self.root.geometry("600x700")
+        self.root.resizable(False, False)
+        self.root.configure(bg="#fffaf0")
+
+        try:
+            self.logo_img = PhotoImage(file="logo.png")  # Add a logo.png in the same folder
+            tk.Label(root, image=self.logo_img, bg="#fffaf0").pack(pady=10)
+        except Exception:
+            tk.Label(root, text="Emotionary 📔", font=("Georgia", 22, "bold"), bg="#fffaf0").pack(pady=20)
+
+        self.user_email = None
+        self.create_login_screen()
+
+    def create_login_screen(self):
+        for widget in self.root.winfo_children():
+            if not isinstance(widget, tk.Label):
+                widget.destroy()
+
+        tk.Label(self.root, text="Login to Your Diary", font=("Georgia", 16), bg="#fffaf0").pack(pady=10)
+
+        email_entry = tk.Entry(self.root, font=("Georgia", 14))
+        email_entry.pack(pady=5)
+        email_entry.focus()
+
+        tk.Button(self.root, text="Login / Sign Up", font=("Georgia", 12), command=lambda: self.login(email_entry.get())).pack(pady=20)
+
+    def login(self, email):
+        if auth.login(email):
+            self.user_email = email
+            self.show_main_screen()
+        else:
+            messagebox.showerror("Error", "Login failed. Try again.")
+
+    def show_main_screen(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+        tk.Label(self.root, text=f"Welcome {self.user_email}", font=("Georgia", 14), bg="#fffaf0").pack(pady=10)
+        tk.Label(self.root, text="Write your entry below:", font=("Georgia", 12), bg="#fffaf0").pack()
+
+        self.text_area = scrolledtext.ScrolledText(self.root, wrap=tk.WORD, font=("Georgia", 12), width=60, height=20, bg="#fffef8")
+        self.text_area.pack(pady=10)
+
+        tk.Button(self.root, text="Submit Entry", font=("Georgia", 12), command=self.save_entry).pack(pady=10)
+
+    def save_entry(self):
+        content = self.text_area.get("1.0", tk.END).strip()
+        if not content:
+            messagebox.showwarning("Empty", "Please write something.")
+            return
+
+        emotion = emotions.detect_emotion(content)
+        affirmation = emotions.get_affirmation(emotion)
+
+        # Save entry
+        filename = f"entries/{self.user_email.replace('@', '_at_')}_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.json"
+        with open(filename, "w") as f:
+            json.dump({"entry": content, "emotion": emotion, "affirmation": affirmation}, f, indent=2)
+
+        messagebox.showinfo("Saved", f"Detected Emotion: {emotion}\nAffirmation: {affirmation}")
+        self.text_area.delete("1.0", tk.END)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = EmotionaryApp(root)
+    root.mainloop()
